@@ -271,25 +271,24 @@ def main():
     plt.ylabel('Normalized Income per Capita')
     plt.title('Income per Capita vs. Birth Rate for 2016-18')
     plt.text(0.2,0.8,f'correlation coefficient = {corr_income_birth}')
-    #plt.show()
+    
 ###---------------Analyze Income per Capita and Unemployment Rate------------###
     table_name='Unemployment'
     attr_ep='unemployment_rate'
     joint_unemploy=get_year_specific(db,cur,years,table_name,attr_ep,attr_ct)
     joint_income_unemploy=joint_income.join(joint_unemploy)
-    joint_income_unemploy=normalize_df(joint_income_unemploy)
     extract_income_unemploy=extract_features(joint_income_unemploy,years,[attr_income,attr_ep])
     clean_val(extract_income_unemploy)
     # correlation coefficient
     corr_income_unemploy=np.corrcoef(extract_income_unemploy[0],extract_income_unemploy[1])[0][1]
     plt.figure(2)
     plt.scatter(extract_income_unemploy[0],extract_income_unemploy[1])
-    plt.xlabel('Normalized Income per Capita')
-    plt.ylabel('Normalized Unemployment Rate')
+    plt.xlabel('Income per Capita ($)')
+    plt.ylabel('Unemployment Rate (%)')
     plt.title('Unemployment Rate vs. Income per Capita for 2013 and 2016-18')
-    plt.text(0.2,0.8,f'correlation coefficient = {corr_income_unemploy}')
-    #plt.show()
-###------------------Analyze Income, Birth Rate, and Home Price--------------###
+    plt.text(7e04,22,f'correlation coefficient = {corr_income_unemploy}')
+    
+###---------------Analyze Unemployment, Birth Rate, and Home Price-----------###
     table_name='Home_price'
     attr_pr='home_price'
     column_order=[attr_br,attr_income,attr_pr]
@@ -305,7 +304,7 @@ def main():
     y_price=np.array(extract_income_birth_price[column_order.index(attr_pr)])
     z_birth=np.array(extract_income_birth_price[column_order.index(attr_br)])
     p0=0.00002,-0.0003,0.000003,-0.00005,0.3 #initial guess for a,b,c,d,e
-    p1=curve_fit(func,(x_income,y_price),z_birth,p0) # fit values
+    p1=curve_fit(func,(x_income,y_price),z_birth,p0) # fit values                   
     num=200 # generated points
     X_income,Y_price=np.meshgrid(np.linspace(min(x_income),max(x_income),num),\
                                  np.linspace(min(y_price),max(y_price),num))
