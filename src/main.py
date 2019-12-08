@@ -3,7 +3,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import math
+import copy
+from scipy.optimize import curve_fit
 from sqlcm import select_statement
+from mpl_toolkits.mplot3d import Axes3D
 '''
 This program will run statistical analysis and generate graphs to understand
 and answer questions about some demographic variables whose values are stored
@@ -208,64 +211,67 @@ def main():
 ###----------------find counties with fastest growing population-----------###
     table_name='Birth_rate'
     years=[2013,2016,2017,2018]
-##    attributes=attr_names(db,table_name) # get the list of column names
+    attributes=attr_names(db,table_name) # get the list of column names
     attr_ct,attr_br,attr_yr,attr_id='county','birth_rate','year','id'
     birth_rate=get_year_specific(db,cur,years,table_name,attr_br,attr_ct)
-##    # find the index of a column
-##    county_idx,br_idx=attributes.index(attr_ct),attributes.index(attr_br) 
-##    cur.execute(*select_statement(table_name,[attr_ct]))
-##    county=[]
-##    for i in cur.fetchall():
-##        # i = a list of all values in a row: [id, county, birth rate...]
-##        county.append(i[county_idx])
-##    county=list(set(county)) # remove duplicates
-##    start_yr,end_yr=2016,2018
-##    birth_rates={} # {county1:[rate yr1,rate yr2...]...}
-##    for i in county:
-##        birth_rates[i]=[]
-##    for i in range(start_yr,end_yr+1):
-##        for j in birth_rates:
-##            cur.execute(*select_statement(table_name,[attr_ct,'year'],j,i,select=[attr_br]))
-##            try:
-##                birth_rates[j].append(cur.fetchone()[0])
-##            except:
-##                birth_rates[j].append(None)
-##    for i in birth_rates:
-##        if None in birth_rates[i]:
-##            birth_rates.pop(i) # remove county with None value
-##        else:
-##            birth_rates[i]=sum(birth_rates[i])/len(birth_rates[i]) # calculate the mean
-##    birth_county=[] # takes the form [(birth rate1,county1),...]
-##    for ct,br in birth_rates.items():
-##        birth_county.append((br,ct))
-##    birth_county=sorted(birth_county)
-##    num=5 # the number of counties
-##    county_num=[]# store the foreign keys
-##    birth_county.reverse()
-##    for i in birth_county[0:num]:
-##        county_num.append(i[1])    
-##    county_state=get_county_state(database,county_num)
-##    print(f'The {num} state(s) with the fastest growing population is(are):\n')
-##    for i in county_state:
-##        print(i+'\n')
+    # find the index of a column
+    county_idx,br_idx=attributes.index(attr_ct),attributes.index(attr_br) 
+    cur.execute(*select_statement(table_name,[attr_ct]))
+    county=[]
+    for i in cur.fetchall():
+        # i = a list of all values in a row: [id, county, birth rate...]
+        county.append(i[county_idx])
+    county=list(set(county)) # remove duplicates
+    start_yr,end_yr=2016,2018
+    birth_rates={} # {county1:[rate yr1,rate yr2...]...}
+    for i in county:
+        birth_rates[i]=[]
+    for i in range(start_yr,end_yr+1):
+        for j in birth_rates:
+            cur.execute(*select_statement(table_name,[attr_ct,'year'],j,i,select=[attr_br]))
+            try:
+                birth_rates[j].append(cur.fetchone()[0])
+            except:
+                birth_rates[j].append(None)
+    for i in birth_rates:
+        if None in birth_rates[i]:
+            birth_rates.pop(i) # remove county with None value
+        else:
+            birth_rates[i]=sum(birth_rates[i])/len(birth_rates[i]) # calculate the mean
+    birth_county=[] # takes the form [(birth rate1,county1),...]
+    for ct,br in birth_rates.items():
+        birth_county.append((br,ct))
+    birth_county=sorted(birth_county)
+    num=5 # the number of counties
+    county_num=[]# store the foreign keys
+    birth_county.reverse()
+    for i in birth_county[0:num]:
+        county_num.append(i[1])    
+    county_state=get_county_state(database,county_num)
+    print(f'The {num} state(s) with the fastest growing population is(are):')
+    for i in county_state:
+        print(i)
 
 ###--------------Analyze Income per Capita and Birth Rate-------------------###
     table_name='Income_per_capita'
     attr_income='per_capita_income'
     joint_income=get_year_specific(db,cur,years,table_name,attr_income,attr_ct)
     # join both income and birth rate data frames
-##    joint_income_birth=joint_income.join(birth_rate)
-##    joint_income_birth=normalize_df(joint_income_birth)
-##    extract_income_birth=extract_features(joint_income_birth,years,[attr_br,attr_income])
-##    clean_val(extract_income_birth)
-##    # correlation coefficient
-##    corr_income_birth=np.corrcoef(extract_income_birth[0],extract_income_birth[1])[0][1]
-##    plt.scatter(extract_income_birth[0],extract_income_birth[1])
-##    plt.xlabel('Normalized Birth Rate')
-##    plt.ylabel('Normalized Income per Capita')
-##    plt.title('Income per Capita Vs. Birth Rate for 2016-18')
-##    plt.text(0.2,0.8,f'correlation coefficient = {corr_income_birth}')
-##    plt.show()
+    joint_income_birth=joint_income.join(birth_rate)
+    # make a copy before normalization
+    joint_income_birth_copy=copy.copy(joint_income_birth)
+    joint_income_birth=normalize_df(joint_income_birth)
+    extract_income_birth=extract_features(joint_income_birth,years,[attr_br,attr_income])
+    clean_val(extract_income_birth)
+    # correlation coefficient
+    corr_income_birth=np.corrcoef(extract_income_birth[0],extract_income_birth[1])[0][1]
+    plt.figure(1)
+    plt.scatter(extract_income_birth[0],extract_income_birth[1])
+    plt.xlabel('Normalized Birth Rate')
+    plt.ylabel('Normalized Income per Capita')
+    plt.title('Income per Capita vs. Birth Rate for 2016-18')
+    plt.text(0.2,0.8,f'correlation coefficient = {corr_income_birth}')
+    #plt.show()
 ###---------------Analyze Income per Capita and Unemployment Rate------------###
     table_name='Unemployment'
     attr_ep='unemployment_rate'
@@ -276,13 +282,43 @@ def main():
     clean_val(extract_income_unemploy)
     # correlation coefficient
     corr_income_unemploy=np.corrcoef(extract_income_unemploy[0],extract_income_unemploy[1])[0][1]
+    plt.figure(2)
     plt.scatter(extract_income_unemploy[0],extract_income_unemploy[1])
     plt.xlabel('Normalized Income per Capita')
     plt.ylabel('Normalized Unemployment Rate')
-    plt.title('Unemployment Rate Vs. Income per Capita for 2013 and 2016-18')
+    plt.title('Unemployment Rate vs. Income per Capita for 2013 and 2016-18')
     plt.text(0.2,0.8,f'correlation coefficient = {corr_income_unemploy}')
+    #plt.show()
+###------------------Analyze Income, Birth Rate, and Home Price--------------###
+    table_name='Home_price'
+    attr_pr='home_price'
+    column_order=[attr_br,attr_income,attr_pr]
+    joint_price=get_year_specific(db,cur,years,table_name,attr_pr,attr_ct)
+    joint_income_birth_price=joint_income_birth_copy.join(joint_price)
+    extract_income_birth_price=extract_features(joint_income_birth_price,years,\
+                                          column_order)
+    clean_val(extract_income_birth_price)
+    # fit this anonymous function:
+    # birth rate = a*income**2+b*income+c*home price**2+d*home prince+e
+    func=lambda xy,a,b,c,d,e:a*xy[0]**2+b*xy[0]+c*xy[1]**2+d*xy[1]+e
+    x_income=np.array(extract_income_birth_price[column_order.index(attr_income)])
+    y_price=np.array(extract_income_birth_price[column_order.index(attr_pr)])
+    z_birth=np.array(extract_income_birth_price[column_order.index(attr_br)])
+    p0=0.00002,-0.0003,0.000003,-0.00005,0.3 #initial guess for a,b,c,d,e
+    p1=curve_fit(func,(x_income,y_price),z_birth,p0) # fit values
+    num=200 # generated points
+    X_income,Y_price=np.meshgrid(np.linspace(min(x_income),max(x_income),num),\
+                                 np.linspace(min(y_price),max(y_price),num))
+    Z_birth=func((X_income.ravel(),Y_price.ravel()),*p1[0]).reshape(X_income.shape)
+    fig=plt.figure()
+    ax=fig.add_subplot(111,projection='3d')
+    ax.plot_surface(X_income,Y_price,Z_birth)
+    ax.set_xlabel('Income per Capita ($)')
+    ax.set_ylabel('Median Home Price ($)')
+    ax.set_zlabel('Birth Rate (%)')
+    ax.set_title('Surface Plot of Birth Rate vs. Income&Home Price')
     plt.show()
-    return joint_income_unemploy
+    return joint_income_birth_copy
 # define global variables
 database='..//data//Demography.db'
 table_name_yr='Year'
