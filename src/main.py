@@ -260,17 +260,19 @@ def main():
     joint_income_birth=joint_income.join(birth_rate)
     # make a copy before normalization
     joint_income_birth_copy=copy.copy(joint_income_birth)
-    joint_income_birth=normalize_df(joint_income_birth)
+    #joint_income_birth=normalize_df(joint_income_birth)
     extract_income_birth=extract_features(joint_income_birth,years,[attr_br,attr_income])
     clean_val(extract_income_birth)
     # correlation coefficient
+    for i in range(len(extract_income_birth)):
+        extract_income_birth[i]=normalize(extract_income_birth[i])
     corr_income_birth=np.corrcoef(extract_income_birth[0],extract_income_birth[1])[0][1]
     plt.figure(1)
     plt.scatter(extract_income_birth[0],extract_income_birth[1])
     plt.xlabel('Normalized Birth Rate')
     plt.ylabel('Normalized Income per Capita')
     plt.title('Income per Capita vs. Birth Rate for 2016-18')
-    plt.text(0.2,0.8,f'correlation coefficient = {corr_income_birth}')
+    plt.text(0.2,0.7,f'correlation coefficient = {corr_income_birth}')
     
 ###---------------Analyze Income per Capita and Unemployment Rate------------###
     table_name='Unemployment'
@@ -281,8 +283,13 @@ def main():
     clean_val(extract_income_unemploy)
     # correlation coefficient
     corr_income_unemploy=np.corrcoef(extract_income_unemploy[0],extract_income_unemploy[1])[0][1]
+    func=lambda x,a,b: a*x+b # linear regression line
+    a,b = np.polyfit(extract_income_unemploy[0],extract_income_unemploy[1], 1)
     plt.figure(2)
-    plt.scatter(extract_income_unemploy[0],extract_income_unemploy[1])
+    #plt.scatter(extract_income_unemploy[0],extract_income_unemploy[1])
+    plt.plot(extract_income_unemploy[0],extract_income_unemploy[1],'bo',extract_income_unemploy[0],\
+        list(func(np.array(extract_income_unemploy[0]),a,b)),'-r')
+    plt.ylim(0,max(extract_income_unemploy[1])+1)
     plt.xlabel('Income per Capita ($)')
     plt.ylabel('Unemployment Rate (%)')
     plt.title('Unemployment Rate vs. Income per Capita for 2013 and 2016-18')
@@ -313,15 +320,15 @@ def main():
     ax=fig.add_subplot(111,projection='3d')
     ax.plot_surface(X_income,Y_price,Z_birth)
     ax.set_xlabel('Income per Capita ($)')
-    ax.set_ylabel('Median Home Price ($)')
+    ax.set_ylabel('\n Median Home Price ($)')
     ax.set_zlabel('Birth Rate (%)')
     ax.set_title('Surface Plot of Birth Rate vs. Income&Home Price')
     plt.show()
-    return joint_income_birth_copy
+    
 # define global variables
 database='..//data//Demography.db'
 table_name_yr='Year'
 table_name_st='State_abbreviation'
 table_name_ct='County'
 if __name__=='__main__':
-    income=main()
+    main()
