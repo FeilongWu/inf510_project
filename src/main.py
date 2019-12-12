@@ -287,7 +287,7 @@ def main():
     a,b = np.polyfit(extract_income_unemploy[0],extract_income_unemploy[1], 1)
     plt.figure(2)
     #plt.scatter(extract_income_unemploy[0],extract_income_unemploy[1])
-    plt.plot(extract_income_unemploy[0],extract_income_unemploy[1],'bo',extract_income_unemploy[0],\
+    plt.plot(extract_income_unemploy[0],extract_income_unemploy[1],'o',extract_income_unemploy[0],\
         list(func(np.array(extract_income_unemploy[0]),a,b)),'-r')
     plt.ylim(0,max(extract_income_unemploy[1])+1)
     plt.xlabel('Income per Capita ($)')
