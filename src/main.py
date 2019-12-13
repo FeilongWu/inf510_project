@@ -146,6 +146,12 @@ def normalize(array):
                     continue
     
     return np.array(result)
+def normalize_all(data):
+    # return normalized lists in a list
+    # data=a list of lists containing values
+    for i in range(len(data)):
+        data[i]=normalize(data[i])
+    return data
 def normalize_df(df,columns='All'):
     # returns the df whose columns are normalized and specified by columns
     # df=pandas data frame
@@ -202,27 +208,23 @@ def clean_val(values):
     for i in non_val:
         for j in range(len(values)):
             del values[j][i]
-def main():
-    db=sql.connect(database)
-    cur=db.cursor()
-    
-    
-    
-###----------------find counties with fastest growing population-----------###
-    table_name='Birth_rate'
-    years=[2013,2016,2017,2018]
-    attributes=attr_names(db,table_name) # get the list of column names
-    attr_ct,attr_br,attr_yr,attr_id='county','birth_rate','year','id'
-    birth_rate=get_year_specific(db,cur,years,table_name,attr_br,attr_ct)
+def avg_birth_rate(table_name,db,cur,df,start_yr,end_yr):
+    # return a dictionary of the form: {county key:average birth rate,...}
     # find the index of a column
-    county_idx,br_idx=attributes.index(attr_ct),attributes.index(attr_br) 
+    # table_name=name of database table
+    # db=database connection
+    # cur=database cursor
+    # df=dataframe of birth rate
+    # start_yr=start year
+    # end_yr=end year
+    attributes=attr_names(db,table_name) # get the list of column names
+    county_idx,br_idx=attributes.index(attr_ct),attributes.index(attr_br)
     cur.execute(*select_statement(table_name,[attr_ct]))
     county=[]
     for i in cur.fetchall():
         # i = a list of all values in a row: [id, county, birth rate...]
         county.append(i[county_idx])
     county=list(set(county)) # remove duplicates
-    start_yr,end_yr=2016,2018
     birth_rates={} # {county1:[rate yr1,rate yr2...]...}
     for i in county:
         birth_rates[i]=[]
@@ -241,12 +243,56 @@ def main():
     birth_county=[] # takes the form [(birth rate1,county1),...]
     for ct,br in birth_rates.items():
         birth_county.append((br,ct))
-    birth_county=sorted(birth_county)
-    num=5 # the number of counties
-    county_num=[]# store the foreign keys
+    sorted(birth_county)
     birth_county.reverse()
+    return birth_county
+def get_county_key(num,birth_county):
+    # return a list of county keys from a list
+    # num=the number of keys
+    # birth_county=[[birth rates],[county keys]]
+    county_num=[]# store the foreign keys
     for i in birth_county[0:num]:
-        county_num.append(i[1])    
+        county_num.append(i[1])
+    return county_num
+def join_df(df1,df2):
+    # return a joint data frame from the inputs
+    # df1=a data frame
+    # df2=nother data drame
+    return df1.join(df2)
+def extract_array(df,column_order,attr):
+    # return an array for data extract from a data frame
+    # df=data frame
+    # column_order=a list of column names for the data frame
+    # attr=a list of the names of columns for extraction
+    result=[]
+    for i in attr:
+        result.append(np.array(df[column_order.index(i)]))
+    return result
+def get_2D_array(x,y,func,p1,num=200):
+    # return x,y,z as 2D arrays for surface plot
+    # x=1D array
+    # y=1D array
+    # func=anonumous function to generate z
+    # p1=parameters for func
+    # num=the number of generated points
+    X,Y=np.meshgrid(np.linspace(min(x),max(x),num),\
+                                 np.linspace(min(y),max(y),num))
+    Z=func((X.ravel(),Y.ravel()),*p1[0]).reshape(X.shape)
+    return X,Y,Z
+        
+def main():
+
+    
+    
+    
+###----------------find counties with fastest growing population-----------###
+    table_name='Birth_rate'
+    years=[2013,2016,2017,2018]
+    start_yr,end_yr=2016,2018
+    num=5 # the number of counties
+    birth_rate=get_year_specific(db,cur,years,table_name,attr_br,attr_ct)
+    birth_county=avg_birth_rate(table_name,db,cur,birth_rate,start_yr,end_yr)
+    county_num=get_county_key(num,birth_county)   
     county_state=get_county_state(database,county_num)
     print(f'The {num} state(s) with the fastest growing population is(are):')
     for i in county_state:
@@ -257,15 +303,14 @@ def main():
     attr_income='per_capita_income'
     joint_income=get_year_specific(db,cur,years,table_name,attr_income,attr_ct)
     # join both income and birth rate data frames
-    joint_income_birth=joint_income.join(birth_rate)
+    joint_income_birth=join_df(joint_income,birth_rate)
     # make a copy before normalization
     joint_income_birth_copy=copy.copy(joint_income_birth)
     #joint_income_birth=normalize_df(joint_income_birth)
     extract_income_birth=extract_features(joint_income_birth,years,[attr_br,attr_income])
     clean_val(extract_income_birth)
     # correlation coefficient
-    for i in range(len(extract_income_birth)):
-        extract_income_birth[i]=normalize(extract_income_birth[i])
+    extract_income_birth=normalize_all(extract_income_birth)
     corr_income_birth=np.corrcoef(extract_income_birth[0],extract_income_birth[1])[0][1]
     plt.figure(1)
     plt.scatter(extract_income_birth[0],extract_income_birth[1])
@@ -278,7 +323,7 @@ def main():
     table_name='Unemployment'
     attr_ep='unemployment_rate'
     joint_unemploy=get_year_specific(db,cur,years,table_name,attr_ep,attr_ct)
-    joint_income_unemploy=joint_income.join(joint_unemploy)
+    joint_income_unemploy=join_df(joint_income,joint_unemploy)
     extract_income_unemploy=extract_features(joint_income_unemploy,years,[attr_income,attr_ep])
     clean_val(extract_income_unemploy)
     # correlation coefficient
@@ -297,25 +342,19 @@ def main():
     
 ###---------------Analyze Unemployment, Birth Rate, and Home Price-----------###
     table_name='Home_price'
-    attr_pr='home_price'
     column_order=[attr_br,attr_income,attr_pr]
     joint_price=get_year_specific(db,cur,years,table_name,attr_pr,attr_ct)
-    joint_income_birth_price=joint_income_birth_copy.join(joint_price)
+    joint_income_birth_price=join_df(joint_income_birth_copy,joint_price)
     extract_income_birth_price=extract_features(joint_income_birth_price,years,\
                                           column_order)
     clean_val(extract_income_birth_price)
     # fit this anonymous function:
     # birth rate = a*income**2+b*income+c*home price**2+d*home prince+e
     func=lambda xy,a,b,c,d,e:a*xy[0]**2+b*xy[0]+c*xy[1]**2+d*xy[1]+e
-    x_income=np.array(extract_income_birth_price[column_order.index(attr_income)])
-    y_price=np.array(extract_income_birth_price[column_order.index(attr_pr)])
-    z_birth=np.array(extract_income_birth_price[column_order.index(attr_br)])
+    x_income,y_price,z_birth=extract_array(extract_income_birth_price,column_order,[attr_income,attr_pr,attr_br])
     p0=0.00002,-0.0003,0.000003,-0.00005,0.3 #initial guess for a,b,c,d,e
     p1=curve_fit(func,(x_income,y_price),z_birth,p0) # fit values                   
-    num=200 # generated points
-    X_income,Y_price=np.meshgrid(np.linspace(min(x_income),max(x_income),num),\
-                                 np.linspace(min(y_price),max(y_price),num))
-    Z_birth=func((X_income.ravel(),Y_price.ravel()),*p1[0]).reshape(X_income.shape)
+    X_income,Y_price,Z_birth=get_2D_array(x_income,y_price,func,p1)
     fig=plt.figure()
     ax=fig.add_subplot(111,projection='3d')
     ax.plot_surface(X_income,Y_price,Z_birth)
@@ -330,5 +369,8 @@ database='..//data//Demography.db'
 table_name_yr='Year'
 table_name_st='State_abbreviation'
 table_name_ct='County'
+attr_ct,attr_br,attr_yr,attr_id,attr_pr='county','birth_rate','year','id','home_price'
+db=sql.connect(database)
+cur=db.cursor()
 if __name__=='__main__':
     main()
